@@ -2,13 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as weather from "../lib/weather";
 import { getCity, setCity, getUseLocation, setUseLocation } from "../lib/prefs";
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function CityTemperatureWidget() {
   const [city, setCityState] = useState("");
   const [useLocation, setUseLocationState] = useState(false);
   const [temp, setTemp] = useState<number | "loading" | "error">("loading");
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [suggestions, setSuggestions] = useState<weather.CitySuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadCity = useCallback(async () => {
     const ul = getUseLocation();
@@ -103,6 +108,26 @@ export function CityTemperatureWidget() {
     return () => document.removeEventListener("click", handler);
   }, [popoverOpen]);
 
+  // Debounced city search for autofill
+  useEffect(() => {
+    const q = inputValue.trim();
+    if (!q || q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSuggestionsLoading(true);
+      const results = await weather.searchCities(q, 8);
+      setSuggestions(results);
+      setSuggestionsLoading(false);
+      searchTimeoutRef.current = null;
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [inputValue]);
+
   const handleSave = () => {
     const v = inputValue.trim();
     if (v) {
@@ -110,8 +135,20 @@ export function CityTemperatureWidget() {
       setUseLocation(false);
       setUseLocationState(false);
       setCityState(v);
+      setSuggestions([]);
       fetchTempByCity(v);
     }
+    setPopoverOpen(false);
+  };
+
+  const handleSelectSuggestion = (name: string) => {
+    setInputValue(name);
+    setSuggestions([]);
+    setCity(name);
+    setUseLocation(false);
+    setUseLocationState(false);
+    setCityState(name);
+    fetchTempByCity(name);
     setPopoverOpen(false);
   };
 
@@ -165,15 +202,46 @@ export function CityTemperatureWidget() {
       </button>
       {popoverOpen && (
         <div className="glass-strong absolute left-0 top-full z-50 mt-2 w-64 rounded-xl p-3 shadow-xl">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            placeholder="City name"
-            className="mb-2 w-full rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-gray-400 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-gray-100"
-            autoFocus
-          />
+          <div className="relative mb-2">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (suggestions.length > 0) handleSelectSuggestion(suggestions[0]!.name);
+                  else handleSave();
+                }
+              }}
+              placeholder="City name"
+              className="w-full rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-gray-400 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-gray-100"
+              autoComplete="off"
+              autoFocus
+            />
+            {suggestionsLoading && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">…</span>
+            )}
+            {suggestions.length > 0 && !suggestionsLoading && (
+              <ul
+                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-white/20 dark:bg-gray-800"
+                role="listbox"
+              >
+                {suggestions.map((s, i) => (
+                  <li key={`${s.name}-${s.countryCode ?? i}`}>
+                    <button
+                      type="button"
+                      role="option"
+                      className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-white/10"
+                      onClick={() => handleSelectSuggestion(s.name)}
+                    >
+                      {s.name}
+                      {s.countryCode ? ` (${s.countryCode})` : ""}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               type="button"

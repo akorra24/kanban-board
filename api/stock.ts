@@ -26,7 +26,8 @@ export default async function handler(req: Request) {
   if (req.method !== "GET") {
     return new Response("Method not allowed", { status: 405 });
   }
-  const url = new URL(req.url);
+  // Support both Web Request (req.url absolute) and Node-style (relative url)
+  const url = req.url.startsWith("http") ? new URL(req.url) : new URL(req.url, "https://" + (req.headers.get("host") ?? "localhost"));
   const ticker = url.searchParams.get("ticker") || "TMUS";
   const range = url.searchParams.get("range") || "1d";
   const type = url.searchParams.get("type") || "quote";

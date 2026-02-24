@@ -35,6 +35,27 @@ export async function geocodeCity(name: string): Promise<GeocodeResult | null> {
   }
 }
 
+/** City search for autofill: returns matching city names (with country). */
+export interface CitySuggestion {
+  name: string;
+  countryCode?: string;
+}
+
+export async function searchCities(query: string, limit = 8): Promise<CitySuggestion[]> {
+  if (!query.trim()) return [];
+  try {
+    const res = await fetch(
+      `${GEOCODING_URL}?name=${encodeURIComponent(query.trim())}&count=${limit}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const data = (await res.json()) as { results?: Array<{ name?: string; country_code?: string }> };
+    const results = data.results ?? [];
+    return results.map((r) => ({ name: r.name ?? "", countryCode: r.country_code }));
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchTemperature(lat: number, lon: number): Promise<number | null> {
   try {
     const res = await fetch(
