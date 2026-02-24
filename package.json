@@ -35,5 +35,10 @@
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1",
     "gh-pages": "^6.2.0"
+  },
+  "homepage": "https://akorra24.github.io/kanban-board/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akorra24/kanban-board.git"
   }
 }
