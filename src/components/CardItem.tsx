@@ -14,9 +14,9 @@ interface CardItemProps {
 }
 
 const priorityColors: Record<Exclude<Priority, null>, string> = {
-  low: "border-l-emerald-400",
-  medium: "border-l-amber-400",
-  high: "border-l-rose-400",
+  low: "bg-emerald-500 dark:bg-emerald-400",
+  medium: "bg-amber-500 dark:bg-amber-400",
+  high: "bg-rose-500 dark:bg-rose-400",
 };
 
 export function CardItem({
@@ -49,9 +49,8 @@ export function CardItem({
     if (isEditing) inputRef.current?.focus();
   }, [isEditing]);
 
-  const priorityBorder = card.priority
-    ? `border-l-4 ${priorityColors[card.priority]}`
-    : "border-l-4 border-l-transparent";
+  const priorityStripeClass = card.priority ? priorityColors[card.priority] : "";
+  const contentPadding = card.priority ? "pl-5" : "";
 
   const isCompleted = card.columnId === "done";
 
@@ -59,12 +58,19 @@ export function CardItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group rounded-2xl glass-card transition-all duration-200 ${
+      className={`group relative overflow-hidden rounded-2xl glass-card transition-all duration-200 ${
         isDragging ? "opacity-95 shadow-xl ring-2 ring-indigo-400/50" : ""
-      } ${priorityBorder} ${isCompleted ? "opacity-80" : ""}`}
+      } ${isCompleted ? "opacity-80" : ""}`}
     >
+      {/* Priority color stripe - visible left bar */}
+      {card.priority && (
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${priorityStripeClass}`}
+          aria-hidden
+        />
+      )}
       <div
-        className={`relative rounded-2xl p-4 ${
+        className={`relative rounded-2xl p-4 ${contentPadding} ${
           isCompleted && card.completedAt ? "kanban-card-completed" : ""
         }`}
       >

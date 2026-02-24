@@ -22,17 +22,28 @@ function cacheHeaders(maxAge: number) {
   };
 }
 
-export default async function handler(req: Request) {
-  if (req.method !== "GET") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-  // Support both Web Request (req.url absolute) and Node-style (relative url)
-  const url = req.url.startsWith("http") ? new URL(req.url) : new URL(req.url, "https://" + (req.headers.get("host") ?? "localhost"));
-  const ticker = url.searchParams.get("ticker") || "TMUS";
-  const range = url.searchParams.get("range") || "1d";
-  const type = url.searchParams.get("type") || "quote";
+function jsonResponse(data: unknown, status: number, maxAge?: number) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...(maxAge != null ? cacheHeaders(maxAge) : {}),
+    },
+  });
+}
 
+export default async function handler(req: Request): Promise<Response> {
   try {
+    if (!req || req.method !== "GET") {
+      return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    const rawUrl = typeof req.url === "string" ? req.url : "";
+    const url = rawUrl.startsWith("http")
+      ? new URL(rawUrl)
+      : new URL(rawUrl || "/", "https://" + (req.headers?.get?.("host") ?? "localhost"));
+    const range = url.searchParams.get("range") || "1d";
+    const type = url.searchParams.get("type") || "quote";
+
     if (type === "quote") {
       const yahooUrl = `${YAHOO_CHART}?interval=1d&range=1d`;
       const res = await fetch(yahooUrl, {
@@ -40,36 +51,27 @@ export default async function handler(req: Request) {
           "User-Agent": "Mozilla/5.0 (compatible; KanbanBoard/1.0)",
           Accept: "application/json",
         },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(12000),
       });
-      if (!res.ok) throw new Error(`Yahoo ${res.status}`);
-      const data = (await res.json()) as {
-        chart?: {
-          result?: Array<{
-            meta?: { regularMarketPrice?: number; chartPreviousClose?: number };
-          }>;
-        };
-      };
-      const result = data.chart?.result?.[0];
-      if (!result) throw new Error("No data");
-      const price = result.meta?.regularMarketPrice ?? result.meta?.chartPreviousClose;
-      if (price == null) throw new Error("No price");
-      const prev = result.meta?.chartPreviousClose ?? price;
+      if (!res.ok) return jsonResponse({ error: "Upstream error" }, 502);
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch {
+        return jsonResponse({ error: "Invalid upstream response" }, 502);
+      }
+      const chart = data && typeof data === "object" && "chart" in data ? (data as { chart?: { result?: Array<{ meta?: { regularMarketPrice?: number; chartPreviousClose?: number } }> } }).chart : undefined;
+      const result = chart?.result?.[0];
+      if (!result?.meta) return jsonResponse({ error: "No data" }, 502);
+      const price = result.meta.regularMarketPrice ?? result.meta.chartPreviousClose;
+      if (price == null) return jsonResponse({ error: "No price" }, 502);
+      const prev = result.meta.chartPreviousClose ?? price;
       const change = price - prev;
       const changePercent = prev ? (change / prev) * 100 : 0;
-      return new Response(
-        JSON.stringify({
-          price,
-          change,
-          changePercent,
-          updatedAt: new Date().toISOString(),
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...cacheHeaders(CACHE_MAX_AGE_QUOTE),
-          },
-        }
+      return jsonResponse(
+        { price, change, changePercent, updatedAt: new Date().toISOString() },
+        200,
+        CACHE_MAX_AGE_QUOTE
       );
     }
 
@@ -83,37 +85,27 @@ export default async function handler(req: Request) {
         },
         signal: AbortSignal.timeout(15000),
       });
-      if (!res.ok) throw new Error(`Yahoo ${res.status}`);
-      const data = (await res.json()) as {
-        chart?: {
-          result?: Array<{
-            timestamp?: number[];
-            indicators?: {
-              quote?: Array<{ close?: (number | null)[] }>;
-            };
-          }>;
-        };
-      };
-      const result = data.chart?.result?.[0];
-      if (!result?.timestamp) throw new Error("No data");
-      const closes = result.indicators?.quote?.[0]?.close ?? [];
-      const points = result.timestamp
-        .map((t, i) => ({ t, v: closes[i] ?? 0 }))
-        .filter((p) => p.v > 0);
-      return new Response(JSON.stringify(points), {
-        headers: {
-          "Content-Type": "application/json",
-          ...cacheHeaders(CACHE_MAX_AGE_HISTORY),
-        },
-      });
+      if (!res.ok) return jsonResponse({ error: "Upstream error" }, 502);
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch {
+        return jsonResponse({ error: "Invalid upstream response" }, 502);
+      }
+      const chart = data && typeof data === "object" && "chart" in data ? (data as { chart?: { result?: Array<{ timestamp?: number[]; indicators?: { quote?: Array<{ close?: (number | null)[] }> } }> }).chart : undefined;
+      const result = chart?.result?.[0];
+      const timestamp = result?.timestamp;
+      if (!Array.isArray(timestamp) || timestamp.length === 0) return jsonResponse({ error: "No data" }, 502);
+      const closes = result?.indicators?.quote?.[0]?.close ?? [];
+      const points = timestamp
+        .map((t: number, i: number) => ({ t, v: closes[i] ?? 0 }))
+        .filter((p: { t: number; v: number }) => p.v > 0);
+      return jsonResponse(points, 200, CACHE_MAX_AGE_HISTORY);
     }
 
-    return new Response("Bad request", { status: 400 });
+    return jsonResponse({ error: "Bad request" }, 400);
   } catch (err) {
     console.error("Stock API error:", err);
-    return new Response(
-      JSON.stringify({ error: "Stock data unavailable" }),
-      { status: 502, headers: { "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ error: "Stock data unavailable" }, 502);
   }
 }
