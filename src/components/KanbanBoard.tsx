@@ -17,7 +17,11 @@ import { KanbanColumn } from "./KanbanColumn";
 import { TaskModal } from "./TaskModal";
 import { CardEditModal } from "./CardEditModal";
 import { BackupRestoreDrawer } from "./BackupRestoreDrawer";
+import { CityTemperatureWidget } from "./CityTemperatureWidget";
 import { ConfettiBurst } from "./ConfettiBurst";
+import { DebugThemePanel } from "./DebugThemePanel";
+import { EditableBoardTitle } from "./EditableBoardTitle";
+import { TMUSStockWidget } from "./TMUSStockWidget";
 import { useBoard } from "../hooks/useBoard";
 import { usePersistence } from "../hooks/usePersistence";
 import { useToast } from "../contexts/ToastContext";
@@ -323,23 +327,13 @@ export function KanbanBoard() {
 
       <header className="sticky top-0 z-20 glass border-0 rounded-none">
         <div className="relative z-10 mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "system" : "dark")}
-              className="rounded-full glass-pill p-2.5 text-gray-600 hover:text-gray-900 transition-colors dark:text-gray-400 dark:hover:text-white"
-              title={theme === "system" ? "Theme: System" : theme === "dark" ? "Theme: Dark" : "Theme: Light"}
-            >
-              {resolvedTheme === "dark" ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kanban Board</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <CityTemperatureWidget />
+            <span className="hidden text-gray-300 dark:text-gray-600 sm:inline" aria-hidden>|</span>
+            <EditableBoardTitle />
+            <span className="hidden text-gray-300 dark:text-gray-600 sm:inline" aria-hidden>|</span>
+            <TMUSStockWidget />
+            <span className="hidden text-gray-300 dark:text-gray-600 sm:inline" aria-hidden>|</span>
             <span
               className="text-xs text-gray-500 dark:text-gray-400"
               title={`Last saved: ${status.lastSavedAt ?? "—"}`}
@@ -356,6 +350,21 @@ export function KanbanBoard() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "system" : "dark")}
+              className="rounded-full glass-pill p-2.5 text-gray-600 hover:text-gray-900 transition-colors dark:text-gray-400 dark:hover:text-white"
+              title={theme === "system" ? "Theme: System" : theme === "dark" ? "Theme: Dark" : "Theme: Light"}
+            >
+              {resolvedTheme === "dark" ? (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
             {wipCount > 3 && (
               <span className="inline-flex items-center gap-1.5 rounded-full glass-pill px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300">
                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -407,7 +416,7 @@ export function KanbanBoard() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-7xl overflow-x-hidden px-4 py-6 sm:px-6">
-        <div className="glass rounded-3xl p-4 md:p-6">
+        <div className="glass kanban-board-container rounded-3xl p-4 md:p-6">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -460,22 +469,22 @@ export function KanbanBoard() {
       />
 
       {clearDoneConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="mx-4 max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Clear Done column?</h3>
-            <p className="mt-2 text-sm text-gray-600">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="glass-strong mx-4 max-w-sm rounded-2xl p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clear Done column?</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               A snapshot will be created first. All cards in Done will be removed.
             </p>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setClearDoneConfirm(false)}
-                className="flex-1 rounded-xl border border-gray-300 py-2 text-sm font-medium text-gray-700"
+                className="flex-1 rounded-full glass-pill py-2 text-sm font-medium text-gray-700 dark:text-gray-400"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClearDoneConfirm}
-                className="flex-1 rounded-xl bg-gray-900 py-2 text-sm font-medium text-white"
+                className="flex-1 rounded-full bg-gray-900 py-2 text-sm font-medium text-white dark:bg-white/15 dark:hover:bg-white/25"
               >
                 Clear Done
               </button>
@@ -491,6 +500,7 @@ export function KanbanBoard() {
         />
       )}
 
+      <DebugThemePanel />
       <KeyboardShortcut keyCode="KeyN" onActivate={() => setModalOpen(true)} />
     </div>
   );

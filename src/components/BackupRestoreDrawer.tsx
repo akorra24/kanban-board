@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BoardState } from "../types";
 import * as backup from "../lib/backup";
 import * as storage from "../lib/storage";
+import { getShowStock, setShowStock } from "../lib/prefs";
 import { boardToCanonical, validateImportFile } from "../lib/schema";
 import type { BackupEntry } from "../lib/backup";
 import type { PersistenceStatus } from "../hooks/usePersistence";
@@ -61,6 +62,7 @@ export function BackupRestoreDrawer({
   const [deleteConfirm, setDeleteConfirm] = useState<BackupEntry | null>(null);
   const [weeklyReminder, setWeeklyReminder] = useState(false);
   const [autoSaveToFile, setAutoSaveToFile] = useState(false);
+  const [showStockTicker, setShowStockTickerState] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export function BackupRestoreDrawer({
       backup.getAllBackups().then(setBackups).catch(() => setBackups([]));
       storage.getWeeklyReminderEnabled().then(setWeeklyReminder);
       storage.getAutoSaveToFileEnabled().then(setAutoSaveToFile);
+      setShowStockTickerState(getShowStock());
     }
   }, [isOpen]);
 
@@ -401,6 +404,35 @@ export function BackupRestoreDrawer({
                   Choose backup location… (Chrome/Edge)
                 </button>
               )}
+            </div>
+          </section>
+
+          {/* Display */}
+          <section className="mb-8">
+            <h3 className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">Display</h3>
+            <div className="glass space-y-4 rounded-2xl p-4">
+              <label className="flex cursor-pointer items-center justify-between">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Show stock ticker</span>
+                <button
+                  role="switch"
+                  aria-checked={showStockTicker}
+                  onClick={() => {
+                    const next = !showStockTicker;
+                    setShowStockTickerState(next);
+                    setShowStock(next);
+                    window.dispatchEvent(new Event("kanban-prefs-changed"));
+                  }}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    showStockTicker ? "bg-gray-900 dark:bg-white/30" : "bg-gray-300 dark:bg-white/20"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                      showStockTicker ? "left-6" : "left-1"
+                    }`}
+                  />
+                </button>
+              </label>
             </div>
           </section>
 

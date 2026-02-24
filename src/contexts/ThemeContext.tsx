@@ -19,8 +19,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    return (localStorage.getItem("kanban-theme") as Theme) ?? "system";
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("kanban-theme") as Theme) ?? "light";
   });
 
   const [systemDark, setSystemDark] = useState(() => {
