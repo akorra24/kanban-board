@@ -1,35 +1,46 @@
 /**
  * Vercel serverless function: /api/stock
- * Proxies Yahoo Finance data (no CORS). Deploy to Vercel for stock data.
+ * Fetches TMUS daily data from Stooq (free, no API key). Parses CSV and returns JSON.
+ * Server-side cache: 5 minutes.
  */
-const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/TMUS";
+const STOOQ_URL = "https://stooq.com/q/d/l/?s=tmus.us&i=d";
+const CACHE_SECONDS = 300; // 5 minutes
 
-const RANGE_MAP: Record<string, { interval: string; range: string }> = {
-  "1d": { interval: "15m", range: "1d" },
-  "5d": { interval: "1h", range: "5d" },
-  "1mo": { interval: "1d", range: "1mo" },
-  "3mo": { interval: "1d", range: "3mo" },
-  "6mo": { interval: "1d", range: "6mo" },
-  "1y": { interval: "1d", range: "1y" },
+const RANGE_LIMITS: Record<string, number> = {
+  "7d": 7,
+  "1m": 30,
+  "3m": 90,
+  "6m": 180,
+  "12m": 365,
 };
 
-const CACHE_MAX_AGE_QUOTE = 60;
-const CACHE_MAX_AGE_HISTORY = 900;
-
-function cacheHeaders(maxAge: number) {
-  return {
-    "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}`,
-  };
+function cacheHeaders() {
+  return { "Cache-Control": `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}` };
 }
 
-function jsonResponse(data: unknown, status: number, maxAge?: number) {
+function jsonResponse(data: unknown, status: number) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...(maxAge != null ? cacheHeaders(maxAge) : {}),
+      ...cacheHeaders(),
     },
   });
+}
+
+function parseCSV(text: string): { date: string; close: number }[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  const rows: { date: string; close: number }[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i]!.split(",");
+    if (parts.length >= 5) {
+      const date = parts[0]!.trim();
+      const close = parseFloat(parts[4]!);
+      if (date && !isNaN(close)) rows.push({ date, close });
+    }
+  }
+  return rows;
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -41,69 +52,33 @@ export default async function handler(req: Request): Promise<Response> {
     const url = rawUrl.startsWith("http")
       ? new URL(rawUrl)
       : new URL(rawUrl || "/", "https://" + (req.headers?.get?.("host") ?? "localhost"));
-    const range = url.searchParams.get("range") || "1d";
-    const type = url.searchParams.get("type") || "quote";
+    const range = url.searchParams.get("range") || "1m";
 
-    if (type === "quote") {
-      const yahooUrl = `${YAHOO_CHART}?interval=1d&range=1d`;
-      const res = await fetch(yahooUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; KanbanBoard/1.0)",
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(12000),
-      });
-      if (!res.ok) return jsonResponse({ error: "Upstream error" }, 502);
-      let data: unknown;
-      try {
-        data = await res.json();
-      } catch {
-        return jsonResponse({ error: "Invalid upstream response" }, 502);
-      }
-      const chart = data && typeof data === "object" && "chart" in data ? (data as { chart?: { result?: Array<{ meta?: { regularMarketPrice?: number; chartPreviousClose?: number } }> } }).chart : undefined;
-      const result = chart?.result?.[0];
-      if (!result?.meta) return jsonResponse({ error: "No data" }, 502);
-      const price = result.meta.regularMarketPrice ?? result.meta.chartPreviousClose;
-      if (price == null) return jsonResponse({ error: "No price" }, 502);
-      const prev = result.meta.chartPreviousClose ?? price;
-      const change = price - prev;
-      const changePercent = prev ? (change / prev) * 100 : 0;
-      return jsonResponse(
-        { price, change, changePercent, updatedAt: new Date().toISOString() },
-        200,
-        CACHE_MAX_AGE_QUOTE
-      );
-    }
+    const res = await fetch(STOOQ_URL, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; KanbanBoard/1.0)" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return jsonResponse({ error: "Upstream error" }, 502);
+    const text = await res.text();
+    const all = parseCSV(text);
+    if (all.length < 2) return jsonResponse({ error: "No data" }, 502);
 
-    if (type === "history") {
-      const { interval, range: r } = RANGE_MAP[range] ?? RANGE_MAP["1mo"];
-      const yahooUrl = `${YAHOO_CHART}?interval=${interval}&range=${r}`;
-      const res = await fetch(yahooUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; KanbanBoard/1.0)",
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) return jsonResponse({ error: "Upstream error" }, 502);
-      let data: unknown;
-      try {
-        data = await res.json();
-      } catch {
-        return jsonResponse({ error: "Invalid upstream response" }, 502);
-      }
-      const chart = data && typeof data === "object" && "chart" in data ? (data as { chart?: { result?: Array<{ timestamp?: number[]; indicators?: { quote?: Array<{ close?: (number | null)[] }> } }> }).chart : undefined;
-      const result = chart?.result?.[0];
-      const timestamp = result?.timestamp;
-      if (!Array.isArray(timestamp) || timestamp.length === 0) return jsonResponse({ error: "No data" }, 502);
-      const closes = result?.indicators?.quote?.[0]?.close ?? [];
-      const points = timestamp
-        .map((t: number, i: number) => ({ t, v: closes[i] ?? 0 }))
-        .filter((p: { t: number; v: number }) => p.v > 0);
-      return jsonResponse(points, 200, CACHE_MAX_AGE_HISTORY);
-    }
+    const limit = RANGE_LIMITS[range] ?? 30;
+    const history = all.slice(-limit);
+    const currentPrice = history[history.length - 1]!.close;
+    const previousClose = history.length >= 2 ? history[history.length - 2]!.close : currentPrice;
+    const changePercent = previousClose ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
 
-    return jsonResponse({ error: "Bad request" }, 400);
+    return jsonResponse(
+      {
+        currentPrice,
+        previousClose,
+        changePercent,
+        history: history.map(({ date, close }) => ({ date, close })),
+        updatedAt: new Date().toISOString(),
+      },
+      200
+    );
   } catch (err) {
     console.error("Stock API error:", err);
     return jsonResponse({ error: "Stock data unavailable" }, 502);
