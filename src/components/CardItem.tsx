@@ -46,11 +46,24 @@ export function CardItem({
 
   const isCompleted = card.columnId === "done";
 
+  const handleCardActivate = () => onViewDetail(card.id);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleCardActivate();
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative overflow-hidden rounded-2xl glass-card transition-all duration-200 ${
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${card.title || "Untitled"} task details`}
+      onClick={handleCardActivate}
+      onKeyDown={handleKeyDown}
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl glass-card transition-all duration-[180ms] ease-out hover:-translate-y-0.5 hover:shadow-lg hover:ring-1 hover:ring-white/20 motion-reduce:translate-y-0 dark:hover:ring-white/15 ${
         isDragging ? "opacity-95 shadow-xl ring-2 ring-indigo-400/50" : ""
       } ${isCompleted ? "opacity-80" : ""}`}
     >
@@ -80,18 +93,15 @@ export function CardItem({
         <button
           {...attributes}
           {...listeners}
+          onClick={(e) => e.stopPropagation()}
           className="mt-1 shrink-0 cursor-grab rounded p-1 text-gray-500 hover:bg-gray-200/80 hover:text-gray-700 active:cursor-grabbing dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-300"
-          aria-label="Drag"
+          aria-label="Drag to reorder"
         >
           <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M7 2a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h2zM15 2a2 2 0 012 2v12a2 2 0 01-2 2h-2a2 2 0 01-2-2V4a2 2 0 012-2h2z" />
           </svg>
         </button>
-        <button
-          type="button"
-          onClick={() => onViewDetail(card.id)}
-          className="min-w-0 flex-1 cursor-pointer rounded-lg text-left transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 dark:hover:bg-white/5"
-        >
+        <div className="min-w-0 flex-1 rounded-lg text-left">
           <span className={`block text-sm font-medium text-gray-900 dark:text-gray-100 ${isCompleted ? "opacity-90" : ""}`}>
             {card.title || "Untitled"}
           </span>
@@ -124,10 +134,14 @@ export function CardItem({
               })}
             </p>
           )}
-        </button>
+        </div>
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
-            onClick={() => onEdit(card.id)}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(card.id);
+            }}
             className="rounded p-1.5 text-gray-500 hover:bg-gray-200/80 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-300"
             title="Edit"
           >
@@ -137,7 +151,11 @@ export function CardItem({
           </button>
           {canAddToThisWeek && (
             <button
-              onClick={() => onAddToThisWeek(card.id)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToThisWeek(card.id);
+              }}
               className="rounded p-1.5 text-gray-500 hover:bg-amber-200/80 hover:text-amber-700 dark:hover:bg-amber-500/20 dark:hover:text-amber-400"
               title="Add to This Week"
             >
@@ -147,7 +165,11 @@ export function CardItem({
             </button>
           )}
           <button
-            onClick={() => onDelete(card.id)}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(card.id);
+            }}
             className="rounded p-1.5 text-gray-500 hover:bg-red-200/80 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-400"
             title="Delete"
           >
