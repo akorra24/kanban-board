@@ -2,7 +2,7 @@
 
 ## Stock data (TMUS) requires a server-side API
 
-Stock data is proxied through `/api/stock` to avoid CORS. Two options:
+Stock data is proxied through `/api/tmus` (Stooq). Two options:
 
 ### Option A: Deploy to Vercel (recommended)
 
