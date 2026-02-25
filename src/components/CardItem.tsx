@@ -1,16 +1,15 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useRef, useEffect } from "react";
 import type { Card as CardType, Priority } from "../types";
 import { PRIORITY_LABELS } from "../types";
 
 interface CardItemProps {
   card: CardType;
   canAddToThisWeek: boolean;
-  onUpdate: (id: string, updates: Partial<CardType>) => void;
   onDelete: (id: string) => void;
   onAddToThisWeek: (id: string) => void;
   onEdit: (id: string) => void;
+  onViewDetail: (id: string) => void;
 }
 
 const priorityColors: Record<Exclude<Priority, null>, string> = {
@@ -22,14 +21,11 @@ const priorityColors: Record<Exclude<Priority, null>, string> = {
 export function CardItem({
   card,
   canAddToThisWeek,
-  onUpdate,
   onDelete,
   onAddToThisWeek,
   onEdit,
+  onViewDetail,
 }: CardItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
     attributes,
@@ -44,10 +40,6 @@ export function CardItem({
     transform: CSS.Transform.toString(transform),
     transition,
   };
-
-  useEffect(() => {
-    if (isEditing) inputRef.current?.focus();
-  }, [isEditing]);
 
   const priorityStripeClass = card.priority ? priorityColors[card.priority] : "";
   const contentPadding = card.priority ? "pl-5" : "";
@@ -95,29 +87,14 @@ export function CardItem({
             <path d="M7 2a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h2zM15 2a2 2 0 012 2v12a2 2 0 01-2 2h-2a2 2 0 01-2-2V4a2 2 0 012-2h2z" />
           </svg>
         </button>
-        <div className="min-w-0 flex-1">
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={card.title}
-              onChange={(e) => onUpdate(card.id, { title: e.target.value })}
-              onBlur={() => setIsEditing(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setIsEditing(false);
-              }}
-              className={`w-full rounded-lg border border-gray-300 bg-white/80 px-2 py-1 text-sm font-medium text-gray-900 placeholder-gray-400 focus:border-gray-400 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-gray-100 dark:placeholder-gray-500`}
-            />
-          ) : (
-            <button
-              onClick={() => setIsEditing(true)}
-              className={`w-full text-left text-sm font-medium text-gray-900 hover:text-gray-800 dark:text-gray-100 dark:hover:text-white ${
-                isCompleted ? "opacity-90" : ""
-              }`}
-            >
-              {card.title || "Untitled"}
-            </button>
-          )}
+        <button
+          type="button"
+          onClick={() => onViewDetail(card.id)}
+          className="min-w-0 flex-1 cursor-pointer rounded-lg text-left transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 dark:hover:bg-white/5"
+        >
+          <span className={`block text-sm font-medium text-gray-900 dark:text-gray-100 ${isCompleted ? "opacity-90" : ""}`}>
+            {card.title || "Untitled"}
+          </span>
           {(card.description || card.priority || card.dueDate) && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {card.priority && (
@@ -133,10 +110,7 @@ export function CardItem({
             </div>
           )}
           {card.description && (
-            <p
-              className={`mt-2 text-xs text-gray-500 dark:text-gray-400 ${!showDetails ? "line-clamp-2" : ""}`}
-              onClick={() => setShowDetails(!showDetails)}
-            >
+            <p className="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
               {card.description}
             </p>
           )}
@@ -150,7 +124,7 @@ export function CardItem({
               })}
             </p>
           )}
-        </div>
+        </button>
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={() => onEdit(card.id)}

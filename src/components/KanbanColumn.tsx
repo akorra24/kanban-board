@@ -10,10 +10,10 @@ interface KanbanColumnProps {
   isDone: boolean;
   canAddToThisWeek: boolean;
   onAddCard: () => void;
-  onUpdateCard: (id: string, updates: Partial<Card>) => void;
   onDeleteCard: (id: string) => void;
   onAddToThisWeek: (id: string) => void;
   onEditCard: (id: string) => void;
+  onViewDetail: (id: string) => void;
   onClearDone?: () => void;
 }
 
@@ -24,10 +24,10 @@ export function KanbanColumn({
   isDone,
   canAddToThisWeek,
   onAddCard,
-  onUpdateCard,
   onDeleteCard,
   onAddToThisWeek,
   onEditCard,
+  onViewDetail,
   onClearDone,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
@@ -52,10 +52,10 @@ export function KanbanColumn({
               key={card.id}
               card={card}
               canAddToThisWeek={canAddToThisWeek}
-              onUpdate={onUpdateCard}
               onDelete={onDeleteCard}
               onAddToThisWeek={onAddToThisWeek}
               onEdit={onEditCard}
+              onViewDetail={onViewDetail}
             />
           ))}
           <button

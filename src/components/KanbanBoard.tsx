@@ -16,6 +16,7 @@ import type { ColumnId } from "../types";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskModal } from "./TaskModal";
 import { CardEditModal } from "./CardEditModal";
+import { CardDetailPanel } from "./CardDetailPanel";
 import { BackupRestoreDrawer } from "./BackupRestoreDrawer";
 import { CityTemperatureWidget } from "./CityTemperatureWidget";
 import { ConfettiBurst } from "./ConfettiBurst";
@@ -76,6 +77,7 @@ export function KanbanBoard() {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editCardId, setEditCardId] = useState<string | null>(null);
+  const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<"all" | Exclude<Priority, null>>("all");
   const [backupDrawerOpen, setBackupDrawerOpen] = useState(false);
   const [clearDoneConfirm, setClearDoneConfirm] = useState(false);
@@ -212,10 +214,10 @@ export function KanbanBoard() {
           isDone={isDone}
           canAddToThisWeek={canAddToThisWeek}
           onAddCard={() => addCard(id)}
-          onUpdateCard={updateCard}
           onDeleteCard={deleteCard}
           onAddToThisWeek={addToThisWeek}
           onEditCard={(id) => setEditCardId(id)}
+          onViewDetail={(id) => setDetailCardId(id)}
           onClearDone={
             isDone
               ? () => setClearDoneConfirm(true)
@@ -229,7 +231,6 @@ export function KanbanBoard() {
       state.cards,
       priorityFilter,
       addCard,
-      updateCard,
       deleteCard,
       addToThisWeek,
     ]
@@ -457,6 +458,15 @@ export function KanbanBoard() {
           updateCard(id, updates);
           setEditCardId(null);
         }}
+      />
+
+      <CardDetailPanel
+        card={detailCardId ? state.cards[detailCardId] ?? null : null}
+        isOpen={!!detailCardId}
+        onClose={() => setDetailCardId(null)}
+        onUpdate={updateCard}
+        onEditInModal={(id) => setEditCardId(id)}
+        onDelete={deleteCard}
       />
 
       <BackupRestoreDrawer

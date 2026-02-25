@@ -270,3 +270,12 @@ body {
     transform: scale(1);
   }
 }
+
+/* Card detail panel - readable description */
+.card-detail-description {
+  line-height: 1.6;
+  color: #1f2937;
+}
+.dark .card-detail-description {
+  color: #e5e7eb;
+}
